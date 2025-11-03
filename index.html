@@ -25,7 +25,7 @@
     h2{font-size:clamp(1.1rem,1.02rem + .4vw,1.3rem); margin:1rem 0 .6rem}
     .muted{color:var(--muted)}
     .card{background:var(--soft); border:1px solid var(--stroke); border-radius:var(--radius); padding:16px; margin:14px 0}
-    input[type="url"], textarea{
+    input[type="url"], textarea, input[type="text"]{
       width:100%; padding:10px 12px; border-radius:var(--radius-sm);
       border:1px solid var(--stroke); background:transparent; color:inherit;
     }
@@ -37,9 +37,9 @@
     @media (prefers-color-scheme: dark){ button.ghost{background:#111827; color:#e5e7eb} }
     .spinner{width:18px;height:18px;border:3px solid rgba(0,0,0,.15);border-top-color:currentColor;border-radius:50%;display:inline-block;animation:spin .9s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .chip{display:inline-block;border:1px solid var(--stroke);padding:4px 10px;border-radius:999px;margin:3px 4px 0 0;font-size:.85rem}
+    .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--stroke);padding:4px 10px;border-radius:999px;margin:3px 4px 0 0;font-size:.85rem;background:#fff0}
+    .chip button{all:unset; cursor:pointer; font-weight:700}
 
-    /* Grids de tarjetas */
     .grid3{display:grid; gap:14px; grid-template-columns:repeat(3,1fr)}
     @media (max-width:900px){ .grid3{grid-template-columns:1fr 1fr} }
     @media (max-width:640px){ .grid3{grid-template-columns:1fr} }
@@ -57,7 +57,6 @@
     }
     .post-actions{display:flex; justify-content:flex-end}
 
-    /* Previews lado a lado */
     .two-col{display:grid; gap:16px; grid-template-columns:1fr 1fr}
     @media (max-width:1000px){ .two-col{grid-template-columns:1fr} }
 
@@ -68,12 +67,15 @@
     .preview .pimg{width:100%; aspect-ratio:16/9; border:1px solid var(--stroke); border-radius:12px; object-fit:cover; background:#fff}
     .kpi{display:flex; justify-content:space-between; color:var(--muted); font-size:.9rem}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .row-inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .input-hashtag{max-width:320px}
+    .chips{display:flex;flex-wrap:wrap}
+    .label-small{font-size:.9rem;color:var(--muted);margin:.2rem 0 .4rem}
   </style>
 </head>
 <body>
   <h1>Generar & Publicar</h1>
 
-  <!-- Formulario -->
   <div class="card">
     <form id="form">
       <label for="url"><strong>URL de la noticia</strong></label>
@@ -83,7 +85,7 @@
         <button class="ghost" type="button" id="btn-demo">Demo</button>
         <span id="status" class="muted"></span>
       </div>
-      <p class="muted">Genera 3 propuestas por red + imagen. Selecciona una tarjeta para cargarla abajo y publicar.</p>
+      <p class="muted">Genera 3 propuestas por red + imagen. Selecciona una tarjeta y edita abajo antes de publicar.</p>
     </form>
   </div>
 
@@ -106,15 +108,26 @@
       <strong>Post seleccionado (LinkedIn)</strong>
       <img id="li-img" class="pimg" alt="Imagen LinkedIn" />
       <textarea id="li-editor" placeholder="Ajusta el texto si quieres…"></textarea>
+
       <div>
-        <label><strong>Hashtags del post</strong></label>
-        <textarea id="li-tags" placeholder="#Salud #Prevención …"></textarea>
-        <div class="kpi"><span class="muted">Se añaden al final</span><span id="li-count">0</span></div>
+        <div class="label-small">Hashtags del post</div>
+        <div id="li-post-chips" class="chips"></div>
       </div>
-      <div class="row">
+
+      <div class="row-inline">
+        <label><input type="checkbox" id="li-include-post" checked> Incluir hashtags del post</label>
         <label><input type="checkbox" id="li-include-base" checked> Incluir hashtags base</label>
-        <div id="li-base-chips"></div>
       </div>
+
+      <div class="row-inline">
+        <input id="li-add-tag" class="input-hashtag" type="text" placeholder="Agregar hashtag y Enter (#Salud …)" />
+      </div>
+      <div>
+        <div class="label-small">Extras</div>
+        <div id="li-extra-chips" class="chips"></div>
+      </div>
+
+      <div class="kpi"><span class="muted">Texto + hashtags al publicar</span><span id="li-count">0</span></div>
       <div class="post-actions">
         <button class="primary" id="publish-li" type="button">Publicar en LinkedIn</button>
       </div>
@@ -125,15 +138,26 @@
       <strong>Post seleccionado (Instagram)</strong>
       <img id="ig-img" class="pimg" alt="Imagen Instagram" />
       <textarea id="ig-editor" placeholder="Ajusta el texto si quieres…"></textarea>
+
       <div>
-        <label><strong>Hashtags del post</strong></label>
-        <textarea id="ig-tags" placeholder="#Salud #Prevención …"></textarea>
-        <div class="kpi"><span class="muted">Se añaden al final</span><span id="ig-count">0</span></div>
+        <div class="label-small">Hashtags del post</div>
+        <div id="ig-post-chips" class="chips"></div>
       </div>
-      <div class="row">
+
+      <div class="row-inline">
+        <label><input type="checkbox" id="ig-include-post" checked> Incluir hashtags del post</label>
         <label><input type="checkbox" id="ig-include-base" checked> Incluir hashtags base</label>
-        <div id="ig-base-chips"></div>
       </div>
+
+      <div class="row-inline">
+        <input id="ig-add-tag" class="input-hashtag" type="text" placeholder="Agregar hashtag y Enter (#Salud …)" />
+      </div>
+      <div>
+        <div class="label-small">Extras</div>
+        <div id="ig-extra-chips" class="chips"></div>
+      </div>
+
+      <div class="kpi"><span class="muted">Texto + hashtags al publicar</span><span id="ig-count">0</span></div>
       <div class="post-actions">
         <button class="primary" id="publish-ig" type="button">Publicar en Instagram</button>
       </div>
@@ -153,8 +177,10 @@
     const liCards = $('#li-cards'), igCards = $('#ig-cards');
     const liImg = $('#li-img'), igImg = $('#ig-img');
     const liEditor = $('#li-editor'), igEditor = $('#ig-editor');
-    const liTags = $('#li-tags'), igTags = $('#ig-tags');
-    const liBaseChips = $('#li-base-chips'), igBaseChips = $('#ig-base-chips');
+    const liPostChips = $('#li-post-chips'), igPostChips = $('#ig-post-chips');
+    const liExtraChips = $('#li-extra-chips'), igExtraChips = $('#ig-extra-chips');
+    const liAddTag = $('#li-add-tag'), igAddTag = $('#ig-add-tag');
+    const liIncPost = $('#li-include-post'), igIncPost = $('#ig-include-post');
     const liIncBase = $('#li-include-base'), igIncBase = $('#ig-include-base');
     const liCount = $('#li-count'), igCount = $('#ig-count');
     const publishLI = $('#publish-li'), publishIG = $('#publish-ig');
@@ -164,6 +190,7 @@
     let liPosts = [], igPosts = [];
     let liSelected = 0, igSelected = 0;
     let imageUrl = '';
+    let liExtras = [], igExtras = [];
 
     function setBusy(busy, msg=''){
       btnGenerate.disabled = busy;
@@ -172,7 +199,13 @@
     function autosize(t){ t.style.height='auto'; t.style.height=Math.min(480,Math.max(84,t.scrollHeight))+'px'; }
     function wireCounter(editor, counter){ const upd=()=>{counter.textContent = (editor.value||'').length + ' caracteres'; autosize(editor);}; editor.addEventListener('input',upd); upd(); }
     const normArr = v => Array.isArray(v)?v: (v? [v]:[]);
-    const cleanTag = t => { if(!t) return ''; let s=t.trim(); if(!s) return ''; if(!s.startsWith('#')) s='#'+s.replace(/^#+/,''); return s.replace(/\s+/g,''); };
+    const cleanTag = t => {
+      if(!t) return '';
+      let s = t.trim().replace(/[，,]+/g,''); // sin coma
+      if(!s) return '';
+      if(!s.startsWith('#')) s = '#'+s.replace(/^#+/,'');
+      return s.replace(/\s+/g,''); // sin espacios internos
+    };
     const uniq = arr => [...new Set(arr.filter(Boolean))];
 
     function parsePosts(raw){
@@ -184,7 +217,19 @@
       }).filter(p=>p.text);
     }
 
-    function chipsHtml(list){ return list.map(t=>`<span class="chip">${t}</span>`).join(''); }
+    function chipsHtml(list, removable=false, onRemove){
+      return list.map((t,idx)=>{
+        const id = `${t}-${idx}-${Math.random().toString(36).slice(2,6)}`;
+        return `<span class="chip" data-id="${id}">${t}${removable?`<button title="Quitar" data-remove="${idx}">×</button>`:''}</span>`;
+      }).join('');
+    }
+
+    function renderRemovableChips(container, list, onRemove){
+      container.innerHTML = chipsHtml(list, true);
+      container.querySelectorAll('button[data-remove]').forEach(btn=>{
+        btn.onclick = ()=> onRemove(Number(btn.dataset.remove));
+      });
+    }
 
     function renderCards(container, posts, onSelect){
       container.innerHTML = '';
@@ -195,7 +240,7 @@
           <div class="chip">Post ${i+1}</div>
           <img class="thumb" alt="Imagen" src="${imageUrl||''}">
           <div class="post-text">${p.text.replace(/</g,'&lt;')}</div>
-          <div class="muted">Hashtags del post</div>
+          <div class="muted">Hashtags</div>
           <div>${chipsHtml(p.tags)}</div>
           <div class="post-actions"><button class="ghost" type="button">Seleccionar</button></div>
         `;
@@ -212,14 +257,15 @@
       if (kind==='li'){
         liSelected = idx;
         liEditor.value = liPosts[idx]?.text || '';
-        liTags.value = (liPosts[idx]?.tags || []).join(' ');
-        autosize(liEditor); autosize(liTags);
+        autosize(liEditor);
+        liPostChips.innerHTML = chipsHtml(liPosts[idx]?.tags || []);
       } else {
         igSelected = idx;
         igEditor.value = igPosts[idx]?.text || '';
-        igTags.value = (igPosts[idx]?.tags || []).join(' ');
-        autosize(igEditor); autosize(igTags);
+        autosize(igEditor);
+        igPostChips.innerHTML = chipsHtml(igPosts[idx]?.tags || []);
       }
+      updateCounters();
     }
 
     function buildBoards(data){
@@ -228,6 +274,9 @@
 
       igPosts = parsePosts(data.instagram ?? data.instagram_options);
       liPosts = parsePosts(data.linkedin  ?? data.linkedin_options);
+
+      // reset extras
+      liExtras = []; igExtras = [];
 
       // Mostrar secciones
       liSection.style.display='block';
@@ -242,20 +291,48 @@
       applySelection('li',0); applySelection('ig',0);
       liImg.src = imageUrl; igImg.src = imageUrl;
 
-      liBaseChips.innerHTML = chipsHtml(baseTags);
-      igBaseChips.innerHTML = chipsHtml(baseTags);
+      renderRemovableChips(liExtraChips, liExtras, (i)=>{ liExtras.splice(i,1); renderRemovableChips(liExtraChips, liExtras, (i)=>{ liExtras.splice(i,1); renderRemovableChips(liExtraChips, liExtras, ()=>{}); updateCounters();}); updateCounters();});
+      renderRemovableChips(igExtraChips, igExtras, (i)=>{ igExtras.splice(i,1); renderRemovableChips(igExtraChips, igExtras, ()=>{}); updateCounters();});
 
-      wireCounter(liEditor, liCount); wireCounter(igEditor, igCount);
+      wireCounter(liEditor, liCount);
+      wireCounter(igEditor, igCount);
     }
 
-    function buildFinalCaption(text, postTagsStr, includeBase){
-      const t = (text||'').trim();
-      const pt = (postTagsStr||'').split(/[\s,]+/).map(cleanTag);
-      const all = uniq([ ...pt, ...(includeBase? baseTags: []) ]);
-      const tagsLine = all.length ? '\n\n'+all.join(' ') : '';
-      return (t + tagsLine).trim();
+    function finalHashtags(kind){
+      const postTags = (kind==='li' ? (liPosts[liSelected]?.tags||[]) : (igPosts[igSelected]?.tags||[]));
+      const incPost = (kind==='li' ? liIncPost.checked : igIncPost.checked);
+      const incBase = (kind==='li' ? liIncBase.checked : igIncBase.checked);
+      const extras  = (kind==='li' ? liExtras : igExtras);
+      const all = uniq([ ...(incPost? postTags: []), ...(incBase? baseTags: []), ...extras ]);
+      return all;
     }
 
+    function buildFinalCaption(kind){
+      const text = (kind==='li' ? liEditor.value : igEditor.value).trim();
+      const tags = finalHashtags(kind);
+      const tagsLine = tags.length ? '\n\n'+tags.join(' ') : '';
+      return (text + tagsLine).trim();
+    }
+
+    function updateCounters(){
+      liCount.textContent = buildFinalCaption('li').length + ' caracteres';
+      igCount.textContent = buildFinalCaption('ig').length + ' caracteres';
+    }
+
+    function addExtra(kind, raw){
+      const tag = cleanTag(raw);
+      if(!tag) return;
+      if(kind==='li'){
+        if(!liExtras.includes(tag)) liExtras.push(tag);
+        renderRemovableChips(liExtraChips, liExtras, (i)=>{ liExtras.splice(i,1); renderRemovableChips(liExtraChips, liExtras, ()=>{}); updateCounters();});
+      }else{
+        if(!igExtras.includes(tag)) igExtras.push(tag);
+        renderRemovableChips(igExtraChips, igExtras, (i)=>{ igExtras.splice(i,1); renderRemovableChips(igExtraChips, igExtras, ()=>{}); updateCounters();});
+      }
+      updateCounters();
+    }
+
+    /* ====== Backend calls ====== */
     async function callGenerate(url){
       const r = await fetch(GENERATE_WEBHOOK_URL,{
         method:'POST', headers:{'content-type':'application/json'},
@@ -291,9 +368,21 @@
       document.getElementById('url').value = 'https://www.centronuevaestoril.cl/infarto-en-mujeres-diagnostico-sintomas-nicolas-veas/';
     });
 
+    // Agregar extras con Enter
+    liAddTag.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){ e.preventDefault(); addExtra('li', liAddTag.value); liAddTag.value=''; }
+    });
+    igAddTag.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){ e.preventDefault(); addExtra('ig', igAddTag.value); igAddTag.value=''; }
+    });
+
+    // Recontar cuando cambian toggles
+    [liIncPost, liIncBase, igIncPost, igIncBase].forEach(el=> el.addEventListener('change', updateCounters));
+
+    // Publicar
     publishLI.addEventListener('click', async ()=>{
       try{
-        const caption = buildFinalCaption(liEditor.value, liTags.value, liIncBase.checked);
+        const caption = buildFinalCaption('li');
         await callPublish({ channel:'linkedin', caption, image_url: imageUrl });
         alert('Publicado en LinkedIn ✅');
       }catch(e){ alert(e.message || e); }
@@ -301,7 +390,7 @@
 
     publishIG.addEventListener('click', async ()=>{
       try{
-        const caption = buildFinalCaption(igEditor.value, igTags.value, igIncBase.checked);
+        const caption = buildFinalCaption('ig');
         await callPublish({ channel:'instagram', caption, image_url: imageUrl });
         alert('Publicado en Instagram ✅');
       }catch(e){ alert(e.message || e); }
