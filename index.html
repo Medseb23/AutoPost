@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Generador de Posts | n8n</title>
+  <style>
+    :root{
+      color-scheme: light dark;
+      --bg:#ffffff; --fg:#0f172a; --muted:#6b7280; --soft:rgba(127,127,127,.06);
+      --stroke:rgba(127,127,127,.22); --primary:#111827; --accent:#2563eb;
+      --radius:14px; --radius-sm:10px;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{ --bg:#0b0f17; --fg:#e5e7eb; --soft:rgba(255,255,255,.05); --stroke:rgba(255,255,255,.18) }
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0 auto; padding:20px 16px; max-width:1200px;
+      background:var(--bg); color:var(--fg);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+      line-height:1.55;
+    }
+    h1{font-size:clamp(1.6rem,1.1rem + 1.2vw,2.1rem); margin:.25rem 0 1rem}
+    h2{font-size:clamp(1.1rem,1.02rem + .4vw,1.3rem); margin:1rem 0 .6rem}
+    .muted{color:var(--muted)}
+    .card{background:var(--soft); border:1px solid var(--stroke); border-radius:var(--radius); padding:16px; margin:14px 0}
+    input[type="url"], textarea{
+      width:100%; padding:10px 12px; border-radius:var(--radius-sm);
+      border:1px solid var(--stroke); background:transparent; color:inherit;
+    }
+    textarea{min-height:80px; resize:none}
+    .cta{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px}
+    button{padding:10px 14px; border-radius:12px; border:0; font-weight:600; cursor:pointer}
+    button.primary{background:var(--primary); color:#fff}
+    button.ghost{background:#f3f4f6; color:#111827}
+    @media (prefers-color-scheme: dark){ button.ghost{background:#111827; color:#e5e7eb} }
+    .spinner{width:18px;height:18px;border:3px solid rgba(0,0,0,.15);border-top-color:currentColor;border-radius:50%;display:inline-block;animation:spin .9s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ====== tablero por red ====== */
+    .board{display:grid; gap:16px; grid-template-columns: 1.1fr .9fr}
+    @media (max-width:1000px){ .board{grid-template-columns:1fr} }
+    .grid3{display:grid; gap:14px; grid-template-columns:repeat(3,1fr)}
+    @media (max-width:800px){ .grid3{grid-template-columns:1fr} }
+
+    .post-card{
+      border:1px solid var(--stroke); border-radius:12px; padding:10px; background:#fff0;
+      display:grid; gap:8px; grid-template-rows:auto 1fr auto;
+      transition: box-shadow .2s ease, border-color .2s ease;
+    }
+    .post-card.selected{ border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent) }
+    .thumb{width:100%; aspect-ratio:16/10; border:1px solid var(--stroke); border-radius:10px; object-fit:cover; background:#fff}
+    .post-text{
+      font-size:.95rem; border:1px dashed var(--stroke); border-radius:10px; padding:8px; white-space:pre-wrap;
+      max-height:160px; overflow:auto;
+    }
+    .post-actions{display:flex; justify-content:flex-end}
+    .chip{font-size:.8rem; color:var(--muted)}
+
+    .preview{
+      border:1px solid var(--stroke); border-radius:12px; padding:14px; display:grid; gap:10px;
+      background:var(--soft);
+    }
+    .preview .pimg{width:100%; aspect-ratio:16/9; border:1px solid var(--stroke); border-radius:12px; object-fit:cover; background:#fff}
+    .preview textarea{min-height:110px}
+    .kpi{display:flex; justify-content:space-between; color:var(--muted); font-size:.9rem}
+
+    .two-col{display:grid; gap:16px; grid-template-columns:1fr 1fr}
+    @media (max-width:800px){ .two-col{grid-template-columns:1fr} }
+
+    /* preview HTML opcional (iframe) */
+    iframe#html-preview{width:100%; height:clamp(320px,38vh,520px); border:1px solid var(--stroke); border-radius:12px; background:#fff}
+  </style>
+</head>
+<body>
+  <h1>Generar & Publicar</h1>
+
+  <!-- Formulario -->
+  <div class="card">
+    <form id="form">
+      <label for="url"><strong>URL de la noticia</strong></label>
+      <input id="url" type="url" pattern="https?://.+" placeholder="https://www.tu-sitio.cl/mi-post/" required />
+      <div class="cta">
+        <button class="primary" type="submit" id="btn-generate">Generar propuestas</button>
+        <button class="ghost" type="button" id="btn-demo">Demo</button>
+        <span id="status" class="muted"></span>
+      </div>
+      <p class="muted">Este botón llama al Webhook de n8n y devuelve 3 propuestas para cada red + la imagen y un HTML de preview.</p>
+    </form>
+  </div>
+
+  <!-- Preview HTML general (opcional) -->
+  <div id="htmlBox" class="card" style="display:none">
+    <h2>Preview general</h2>
+    <iframe id="html-preview" title="Vista previa del HTML"></iframe>
+    <div class="muted" id="title"></div>
+  </div>
+
+  <!-- Tableros por red -->
+  <div id="boards" class="two-col" style="display:none">
+    <!-- LinkedIn -->
+    <section class="card">
+      <h2>LinkedIn</h2>
+      <div class="board">
+        <div class="grid3" id="li-cards"></div>
+        <div class="preview">
+          <strong>Post seleccionado (LinkedIn)</strong>
+          <img id="li-img" class="pimg" alt="Imagen LinkedIn" />
+          <textarea id="li-editor" placeholder="Puedes ajustar el texto antes de publicar…"></textarea>
+          <div class="kpi"><span class="chip">Máximo sugerido 700 caracteres</span><span id="li-count">0</span></div>
+          <div class="post-actions">
+            <button class="primary" id="publish-li" type="button">Publicar en LinkedIn</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Instagram -->
+    <section class="card">
+      <h2>Instagram</h2>
+      <div class="board">
+        <div class="grid3" id="ig-cards"></div>
+        <div class="preview">
+          <strong>Post seleccionado (Instagram)</strong>
+          <img id="ig-img" class="pimg" alt="Imagen Instagram" />
+          <textarea id="ig-editor" placeholder="Puedes ajustar el texto antes de publicar…"></textarea>
+          <div class="kpi"><span class="chip">Máximo sugerido 500 caracteres</span><span id="ig-count">0</span></div>
+          <div class="post-actions">
+            <button class="primary" id="publish-ig" type="button">Publicar en Instagram</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    /* ====== Config ====== */
+    const GENERATE_WEBHOOK_URL = 'http://localhost:5678/webhook/generate';
+    const PUBLISH_WEBHOOK_URL  = 'http://localhost:5678/webhook/publish';
+
+    /* ====== Helpers UI ====== */
+    const $ = s => document.querySelector(s);
+    const form = $('#form'), btnGenerate = $('#btn-generate'), btnDemo = $('#btn-demo'), statusEl = $('#status');
+    const htmlBox = $('#htmlBox'), iframe = $('#html-preview'), titleEl = $('#title');
+    const boards = $('#boards');
+    const liCards = $('#li-cards'), igCards = $('#ig-cards');
+    const liImg = $('#li-img'), igImg = $('#ig-img');
+    const liEditor = $('#li-editor'), igEditor = $('#ig-editor');
+    const liCount = $('#li-count'), igCount = $('#ig-count');
+    const publishLI = $('#publish-li'), publishIG = $('#publish-ig');
+
+    let lastPayload = null;
+    let liCopies = [], igCopies = [];
+    let liSelected = 0, igSelected = 0;
+
+    function setBusy(busy, msg=''){
+      btnGenerate.disabled = busy;
+      statusEl.innerHTML = busy ? `<span class="spinner"></span> ${msg || 'Generando…'}` : '';
+    }
+    function autosize(t){ t.style.height='auto'; t.style.height=Math.min(480,Math.max(80,t.scrollHeight))+'px'; }
+    function countChars(v){ return (v||'').length; }
+    function asArray(x){
+      if (Array.isArray(x)) return x;
+      if (x && typeof x === 'object') return Object.values(x);
+      if (typeof x === 'string' && x.trim()) return [{text:x.trim()}];
+      return [];
+    }
+    function normCopies(arr){
+      return asArray(arr).map(v => (v?.text || v?.copy || v?.caption || '').trim()).filter(Boolean);
+    }
+
+    async function callGenerate(url){
+      const r = await fetch(GENERATE_WEBHOOK_URL,{
+        method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({ url: encodeURI(url) })
+      });
+      if (!r.ok){ const t = await r.text().catch(()=> ''); throw new Error(`Fallo el webhook generate: ${r.status} ${t}`); }
+      return r.json();
+    }
+    async function callPublish({ channel, caption, image_url }){
+      const r = await fetch(PUBLISH_WEBHOOK_URL,{
+        method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({ channel, caption, image_url })
+      });
+      if (!r.ok){ const t = await r.text().catch(()=> ''); throw new Error(`Publicación falló: ${r.status} ${t}`); }
+      return r.json().catch(()=>({ok:true}));
+    }
+
+    function renderCards(container, copies, imageUrl, onSelect){
+      container.innerHTML = '';
+      copies.slice(0,3).forEach((txt, i) => {
+        const el = document.createElement('div');
+        el.className = 'post-card' + (i===0 ? ' selected' : '');
+        el.innerHTML = `
+          <div class="chip">Post ${i+1}</div>
+          <img class="thumb" alt="Imagen" src="${imageUrl || ''}">
+          <div class="post-text">${txt.replace(/</g,'&lt;')}</div>
+          <div class="post-actions">
+            <button class="ghost" type="button">Seleccionar</button>
+          </div>
+        `;
+        el.querySelector('button').onclick = () => {
+          [...container.children].forEach(c => c.classList.remove('selected'));
+          el.classList.add('selected');
+          onSelect(i);
+        };
+        container.appendChild(el);
+      });
+    }
+
+    function wirePreview(editor, counter){
+      const upd = () => { counter.textContent = editor.value.length + ' caracteres'; autosize(editor); };
+      editor.addEventListener('input', upd); upd();
+    }
+
+    function buildBoards(data){
+      // HTML general (si viene)
+      if (data.html){ htmlBox.style.display='block'; iframe.srcdoc = data.html; titleEl.textContent = data.title || ''; }
+      else { htmlBox.style.display='none'; }
+
+      igCopies = normCopies(data.instagram ?? data.instagram_options);
+      liCopies = normCopies(data.linkedin  ?? data.linkedin_options);
+      const imgUrl = data.image_url || '';
+
+      // tarjetas
+      renderCards(liCards, liCopies, imgUrl, (idx) => { liSelected = idx; liEditor.value = liCopies[idx] || ''; autosize(liEditor); liCount.textContent = countChars(liEditor.value)+' caracteres'; });
+      renderCards(igCards, igCopies, imgUrl, (idx) => { igSelected = idx; igEditor.value = igCopies[idx] || ''; autosize(igEditor); igCount.textContent = countChars(igEditor.value)+' caracteres'; });
+
+      // previews seleccionados por defecto
+      liSelected = 0; igSelected = 0;
+      liEditor.value = liCopies[0] || ''; igEditor.value = igCopies[0] || '';
+      liImg.src = imgUrl; igImg.src = imgUrl;
+      wirePreview(liEditor, liCount); wirePreview(igEditor, igCount);
+
+      boards.style.display = 'grid';
+    }
+
+    /* ====== Eventos ====== */
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const url = document.getElementById('url').value.trim();
+      if (!url) return;
+      try{
+        setBusy(true, 'Procesando contenido en n8n…');
+        const raw = await callGenerate(url);
+        lastPayload = raw || {};
+        buildBoards(lastPayload);
+      }catch(err){ alert(err.message || err); }
+      finally{ setBusy(false); }
+    });
+
+    btnDemo.addEventListener('click', ()=>{
+      document.getElementById('url').value = 'https://www.centronuevaestoril.cl/infarto-en-mujeres-diagnostico-sintomas-nicolas-veas/';
+    });
+
+    publishLI.addEventListener('click', async ()=>{
+      try{
+        const caption = (liEditor.value || '').trim();
+        await callPublish({ channel:'linkedin', caption, image_url: lastPayload?.image_url || '' });
+        alert('Publicado en LinkedIn ✅');
+      }catch(e){ alert(e.message || e); }
+    });
+
+    publishIG.addEventListener('click', async ()=>{
+      try{
+        const caption = (igEditor.value || '').trim();
+        await callPublish({ channel:'instagram', caption, image_url: lastPayload?.image_url || '' });
+        alert('Publicado en Instagram ✅');
+      }catch(e){ alert(e.message || e); }
+    });
+
+    // Autocarga por query ?url=
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const qp = (new URLSearchParams(location.search).get('url') || '').trim();
+      if (qp){ document.getElementById('url').value = qp; form.dispatchEvent(new Event('submit')); }
+    });
+  </script>
+</body>
+</html>
