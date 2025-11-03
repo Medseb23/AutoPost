@@ -46,7 +46,7 @@
 
     .post-card{
       border:1px solid var(--stroke); border-radius:12px; padding:10px; background:#fff0;
-      display:grid; gap:8px; grid-template-rows:auto auto 1fr auto auto;
+      display:grid; gap:8px; grid-template-rows:auto auto 1fr auto auto auto;
       transition: box-shadow .2s ease, border-color .2s ease;
     }
     .post-card.selected{ border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent) }
@@ -66,11 +66,12 @@
     }
     .preview .pimg{width:100%; aspect-ratio:16/9; border:1px solid var(--stroke); border-radius:12px; object-fit:cover; background:#fff}
     .kpi{display:flex; justify-content:space-between; color:var(--muted); font-size:.9rem}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .row-inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .input-hashtag{max-width:320px}
     .chips{display:flex;flex-wrap:wrap}
     .label-small{font-size:.9rem;color:var(--muted);margin:.2rem 0 .4rem}
+    .label-tiny{font-size:.8rem;color:var(--muted);margin-top:.2rem}
+    .divider{height:1px;background:var(--stroke);margin:4px 0 2px}
   </style>
 </head>
 <body>
@@ -112,6 +113,7 @@
       <div>
         <div class="label-small">Hashtags del post</div>
         <div id="li-post-chips" class="chips"></div>
+        <div class="label-tiny">Puedes sumar “Extras” o activar “Base”.</div>
       </div>
 
       <div class="row-inline">
@@ -142,6 +144,7 @@
       <div>
         <div class="label-small">Hashtags del post</div>
         <div id="ig-post-chips" class="chips"></div>
+        <div class="label-tiny">Puedes sumar “Extras” o activar “Base”.</div>
       </div>
 
       <div class="row-inline">
@@ -198,22 +201,41 @@
     }
     function autosize(t){ t.style.height='auto'; t.style.height=Math.min(480,Math.max(84,t.scrollHeight))+'px'; }
     function wireCounter(editor, counter){ const upd=()=>{counter.textContent = (editor.value||'').length + ' caracteres'; autosize(editor);}; editor.addEventListener('input',upd); upd(); }
+
+    // Normaliza array
     const normArr = v => Array.isArray(v)?v: (v? [v]:[]);
+
+    // Limpia hashtag: quita comas/espacios, fuerza # inicial
     const cleanTag = t => {
       if(!t) return '';
-      let s = t.trim().replace(/[，,]+/g,''); // sin coma
+      let s = String(t).trim().replace(/[，,]+/g,'');
       if(!s) return '';
       if(!s.startsWith('#')) s = '#'+s.replace(/^#+/,'');
-      return s.replace(/\s+/g,''); // sin espacios internos
+      return s.replace(/\s+/g,'');
     };
     const uniq = arr => [...new Set(arr.filter(Boolean))];
 
+    // Extrae hashtags desde texto como fallback
+    const pickFromText = txt => {
+      return (String(txt||'').match(/#[\p{L}\p{N}_]+/gu) || []).map(cleanTag);
+    };
+
+    // Convierte arreglo de posts heterogéneo a {text, tags[]}
     function parsePosts(raw){
       return (Array.isArray(raw)?raw:[]).map(x=>{
-        if (typeof x === 'string') return { text:x.trim(), tags:[] };
-        const text = (x.copy ?? x.text ?? '').toString().trim();
-        const tags = normArr(x.hashtags).map(cleanTag).filter(Boolean);
-        return { text, tags };
+        if (typeof x === 'string') {
+          const text = x.trim();
+          return { text, tags: pickFromText(text) };
+        }
+        const text = (x.copy ?? x.text ?? x.caption ?? '').toString().trim();
+        const tags =
+          normArr(x.hashtags ?? x.hashtags_post ?? x.tags)
+          .map(cleanTag)
+          .filter(Boolean);
+
+        // fallback: si no vienen, intenta sacarlos del texto
+        const merged = tags.length ? tags : pickFromText(text);
+        return { text, tags: uniq(merged) };
       }).filter(p=>p.text);
     }
 
@@ -231,17 +253,19 @@
       });
     }
 
+    // Tarjetas: ahora muestran (hashtags del post + base)
     function renderCards(container, posts, onSelect){
       container.innerHTML = '';
       posts.slice(0,3).forEach((p,i)=>{
+        const allTagsForCard = uniq([...(p.tags||[]), ...baseTags]);
         const el = document.createElement('div');
         el.className = 'post-card' + (i===0?' selected':'');
         el.innerHTML = `
           <div class="chip">Post ${i+1}</div>
           <img class="thumb" alt="Imagen" src="${imageUrl||''}">
           <div class="post-text">${p.text.replace(/</g,'&lt;')}</div>
-          <div class="muted">Hashtags</div>
-          <div>${chipsHtml(p.tags)}</div>
+          <div class="muted">Hashtags sugeridos</div>
+          <div>${chipsHtml(allTagsForCard)}</div>
           <div class="post-actions"><button class="ghost" type="button">Seleccionar</button></div>
         `;
         el.querySelector('button').onclick = ()=>{
@@ -269,8 +293,12 @@
     }
 
     function buildBoards(data){
-      baseTags = (data.hashtags_base || []).map(cleanTag).filter(Boolean);
-      imageUrl = data.image_url || '';
+      // Acepta varios nombres por si cambian en n8n
+      baseTags = uniq(normArr(
+        data.hashtags_base ?? data.hashtagsBase ?? data.base_hashtags ?? []
+      ).map(cleanTag));
+
+      imageUrl = data.image_url || data.image || '';
 
       igPosts = parsePosts(data.instagram ?? data.instagram_options);
       liPosts = parsePosts(data.linkedin  ?? data.linkedin_options);
@@ -291,7 +319,7 @@
       applySelection('li',0); applySelection('ig',0);
       liImg.src = imageUrl; igImg.src = imageUrl;
 
-      renderRemovableChips(liExtraChips, liExtras, (i)=>{ liExtras.splice(i,1); renderRemovableChips(liExtraChips, liExtras, (i)=>{ liExtras.splice(i,1); renderRemovableChips(liExtraChips, liExtras, ()=>{}); updateCounters();}); updateCounters();});
+      renderRemovableChips(liExtraChips, liExtras, (i)=>{ liExtras.splice(i,1); renderRemovableChips(liExtraChips, liExtras, ()=>{}); updateCounters();});
       renderRemovableChips(igExtraChips, igExtras, (i)=>{ igExtras.splice(i,1); renderRemovableChips(igExtraChips, igExtras, ()=>{}); updateCounters();});
 
       wireCounter(liEditor, liCount);
